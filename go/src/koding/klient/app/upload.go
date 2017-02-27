@@ -99,10 +99,10 @@ func (cmd *uploadCmd) stdout() io.Writer {
 //
 //   klient upload [--all] [--json] [-f <file>]
 //
-func Upload(up *uploader.Uploader, args ...string) error {
+func (k *Klient) Upload(args ...string) error {
 	f := flag.NewFlagSet("klient-upload", flag.ContinueOnError)
 	cmd := &uploadCmd{
-		up: up,
+		up: k.uploader,
 	}
 
 	cmd.registerFlags(f)

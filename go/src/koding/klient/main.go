@@ -20,7 +20,6 @@ import (
 	konfig "koding/klient/config"
 	"koding/klient/klientsvc"
 	"koding/klient/registration"
-	"koding/klient/uploader"
 )
 
 // TODO: workaround for #10057
@@ -149,14 +148,12 @@ func realMain() int {
 		MetadataFile:      *flagMetadataFile,
 	}
 
-	up := &uploader.Uploader{} // TODO
-
 	if err := handleMetadata(conf); err != nil {
 		log.Fatalf("error writing Koding metadata: %s", err)
 	}
 
 	if len(f.Args()) != 0 {
-		if err := handleInternalCommand(up, f.Arg(0), f.Args()[1:]...); err != nil {
+		if err := handleInternalCommand(conf, f.Arg(0), f.Args()[1:]...); err != nil {
 			log.Fatal(err)
 		}
 
@@ -174,7 +171,7 @@ func realMain() int {
 	return 0
 }
 
-func handleInternalCommand(up *uploader.Uploader, cmd string, args ...string) (err error) {
+func handleInternalCommand(conf *app.KlientConfig, cmd string, args ...string) (err error) {
 	// The following commands are intended for internal use
 	// only. They are used by kloud to install klient
 	// where no kd is available.
@@ -200,7 +197,13 @@ func handleInternalCommand(up *uploader.Uploader, cmd string, args ...string) (e
 
 		err = klientsvc.Start()
 	case "upload":
-		err = app.Upload(up, args...)
+		var k *app.Klient
+		k, err = app.NewKlient(conf)
+		if err != nil {
+			break
+		}
+
+		err = k.Upload(args...)
 	default:
 		return fmt.Errorf("unrecognized command: %s", cmd)
 	}
