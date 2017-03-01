@@ -10,11 +10,8 @@ import (
 	"koding/kites/tunnelproxy/discover"
 	"koding/klient/machine"
 	"koding/klient/machine/client"
+	msync "koding/klient/machine/mount/sync"
 )
-
-// DynamicSSHFunc is an adapter that allows to retrieve information needed to
-// make SSH connection to remote machine.
-type DynamicSSHFunc func() (username, host string, port int, err error)
 
 // SSHRequest defines machine group ssh info request.
 type SSHRequest struct {
@@ -55,7 +52,7 @@ func (g *Group) SSH(req *SSHRequest) (*SSHResponse, error) {
 		return nil, err
 	}
 
-	username, host, port, err := g.dynamicSSH(req.ID, username)()
+	host, port, err := g.dynamicSSH(req.ID)()
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +89,7 @@ func (g *Group) ensureSSHPubKey(id machine.ID, username, pubKey string) (string,
 	return username, nil
 }
 
-func (g *Group) dynamicSSH(id machine.ID, username string) DynamicSSHFunc {
+func (g *Group) dynamicSSH(id machine.ID) msync.DynamicSSHFunc {
 	var (
 		mtx  sync.Mutex
 		addr machine.Addr
@@ -100,30 +97,30 @@ func (g *Group) dynamicSSH(id machine.ID, username string) DynamicSSHFunc {
 		port int
 	)
 
-	return func() (string, string, int, error) {
+	return func() (string, int, error) {
 		// Check for tunneled connections.
 		a, err := g.address.Latest(id, "tunnel")
 		if err != nil {
 			// There are no tunnel addresses. Get latest IP.
 			if a, err = g.address.Latest(id, "ip"); err != nil {
-				return "", "", 0, err
+				return "", 0, err
 			}
 
-			return username, a.Value, 0, nil
+			return a.Value, 0, nil
 		}
 
 		// Use a pseudo-cache in order to not call discover each time.
 		mtx.Lock()
 		if addr == a {
 			mtx.Unlock()
-			return username, host, port, nil
+			return host, port, nil
 		}
 		mtx.Unlock()
 
 		// Discover tunnel SSH address.
 		endpoints, err := g.discover.Discover(a.Value, "ssh")
 		if err != nil {
-			return "", "", 0, err
+			return "", 0, err
 		}
 
 		tunnelAddr := endpoints[0].Addr
@@ -142,7 +139,7 @@ func (g *Group) dynamicSSH(id machine.ID, username string) DynamicSSHFunc {
 
 		n, err := strconv.Atoi(p)
 		if err != nil {
-			return "", "", 0, err
+			return "", 0, err
 		}
 
 		// Cache results.
@@ -150,6 +147,6 @@ func (g *Group) dynamicSSH(id machine.ID, username string) DynamicSSHFunc {
 		addr, host, port = a, h, n
 		mtx.Unlock()
 
-		return username, host, port, nil
+		return host, port, nil
 	}
 }

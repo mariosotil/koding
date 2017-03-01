@@ -23,6 +23,10 @@ import (
 // IndexFileName is a file name of managed directory index.
 const IndexFileName = "index"
 
+// DynamicSSHFunc is an adapter that allows to retrieve information needed to
+// make SSH connection to remote machine.
+type DynamicSSHFunc func() (host string, port int, err error)
+
 // IndexSyncFunc is a function that must be called by syncer immediately after
 // synchronization process. It is used to update index.
 type IndexSyncFunc func(*index.Change)
